@@ -55,6 +55,21 @@ class Sequential(Layer):
             model2.add_sublayer('l3', paddle.nn.Linear(3, 3))  # add sublayer
             res2 = model2(data)  # sequential execution
 
+            # create Sequential with name Layer pairs
+            model3 = Sequential(
+                ('l1', paddle.nn.Linear(10, 2)),
+                ('l2', paddle.nn.Linear(2, 3)),
+                ('l3', paddle.nn.Linear(3, 2)),
+                ('l4', paddle.nn.Linear(2, 2))
+            )
+            model3[-1] # access l4 layer
+            model3['l1'] # access l1 layer
+            model3[-2] = paddle.nn.Linear(3, 4) # replace l3
+            model3[1:] # select sub seqs
+
+            del model3[0] # del l1
+            del model3[-1] # del l3
+            del model3[:-1] # del l2
     """
 
     def __init__(self, *layers):
@@ -66,26 +81,37 @@ class Sequential(Layer):
             for idx, layer in enumerate(layers):
                 self.add_sublayer(str(idx), layer)
 
-    def __getitem__(self, name):
-        if isinstance(name, slice):
-            return self.__class__(*(list(self._sub_layers.values())[name]))
+    def _get_abs_index(self, idx):
+        assert -len(self) <= idx < len(self)
+        if idx < 0:
+            idx += len(self)
+        return idx
+
+    def __getitem__(self, idx):
+        if isinstance(idx, str):
+            return self._sub_layers[idx]
+        elif isinstance(idx, slice):
+            return Sequential(*list(self._sub_layers.items())[idx])
         else:
-            if name >= len(self._sub_layers):
-                raise IndexError('index {} is out of range'.format(name))
-            elif name < 0 and name >= -len(self._sub_layers):
-                name += len(self._sub_layers)
-            elif name < -len(self._sub_layers):
-                raise IndexError('index {} is out of range'.format(name))
-            return self._sub_layers[str(name)]
+            key = list(self._sub_layers.keys())[self._get_abs_index(idx)]
+            return self._sub_layers[key]
 
-    def __setitem__(self, name, layer):
-        assert isinstance(layer, Layer)
-        setattr(self, str(name), layer)
+    def __setitem__(self, idx, layer):
+        if isinstance(idx, str):
+            setattr(self, str(idx), layer)
+        else:
+            key = list(self._sub_layers.keys())[self._get_abs_index(idx)]
+            setattr(self, key, layer)
 
-    def __delitem__(self, name):
-        name = str(name)
-        assert name in self._sub_layers
-        del self._sub_layers[name]
+    def __delitem__(self, idx):
+        if isinstance(idx, slice):
+            for key in list(self._sub_layers.keys())[idx]:
+                delattr(self, key)
+        elif isinstance(idx, int):
+            key = list(self._sub_layers.keys())[self._get_abs_index(idx)]
+            delattr(self, key)
+        else:
+            delattr(self, idx)
 
     def __len__(self):
         return len(self._sub_layers)
