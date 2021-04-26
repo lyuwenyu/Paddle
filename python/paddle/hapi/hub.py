@@ -17,7 +17,8 @@ import re
 import sys
 import shutil
 import zipfile
-from paddle.utils.download import get_path_from_url
+
+from download import get_path_from_url
 
 DEFAULT_CACHE_DIR = '~/.cache'
 VAR_DEPENDENCY = 'dependencies'
@@ -107,7 +108,11 @@ def _get_cache_or_reload(repo, force_reload, verbose=True, source='github'):
 
         url = _git_archive_link(repo_owner, repo_name, branch, source=source)
 
-        get_path_from_url(url, hub_dir, decompress=False)
+        get_path_from_url(
+            url,
+            hub_dir,
+            decompress=False,
+            use_wget=(True if source == 'gitee' else False))
 
         with zipfile.ZipFile(cached_file) as cached_zipfile:
             extraced_repo_name = cached_zipfile.infolist()[0].filename
